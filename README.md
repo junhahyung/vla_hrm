@@ -49,14 +49,20 @@ These models, originally designed for discrete puzzles (Sudoku, Mazes, ARC-AGI),
 
 ## Results
 
-### V3 Regression Models (Current Best)
+### V3 Regression Models
 | Model | Params | Epochs | Mean Score | Max Score | Notes |
 |-------|--------|--------|------------|-----------|-------|
-| **TRM reg h=256** | **1.5M** | **375** | **0.326** | **0.420** | **Best overall** |
-| HRM reg h=256 | 2.8M | 550 | 0.302 | 0.393 | Strong |
-| TRM reg h=512 | 7.5M | 125 | 0.284 | 0.355 | Still training |
-| HRM deep h=384 (H5L6) | ~6M | 75 | 0.208 | 0.280 | Still improving |
-| TRM deep (H5L6) ah=2 | 2.2M | 50 | 0.091 | 0.143 | Deep recursion slow |
+| TRM reg h=256 | 1.5M | 650 | 0.355 | 0.434 | Best V3 |
+| HRM reg h=256 | 2.8M | 950 | 0.302 | 0.393 | |
+
+### V4 Discrete Tokens with Advanced Losses (Current Best)
+| Model | Loss | Bins | Decode | Mean Score | Max Score | Epoch |
+|-------|------|------|--------|------------|-----------|-------|
+| **TRM Focal** | Focal | 512 | hard | **0.312** | **0.417** | 100 |
+| **HRM Gaussian** | GaussSoft(σ=2) | 256 | soft | 0.286 | **0.427** | 125 |
+| **HRM Gaussian** | GaussSoft(σ=2) | 256 | hard | **0.305** | 0.404 | 125 |
+| TRM Gaussian | GaussSoft(σ=2) | 256 | hard | 0.290 | 0.389 | 75 |
+| TRM Dist-weight | DistWt CE | 256 | hard | 0.233 | 0.355 | 100 |
 
 ### V1 Tokenized Models (Baseline)
 | Model | Mean Score | Max Score | Notes |
