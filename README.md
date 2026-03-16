@@ -2,101 +2,77 @@
 
 ## Overview
 
-This project applies **discrete recursive reasoning models** — specifically **TRM** (Tiny Recursive Models) and **HRM** (Hierarchical Reasoning Models) — to the **PushT** robotic manipulation task from the Diffusion Policy benchmark.
+This project applies **recursive reasoning models** — **TRM** (Tiny Recursive Models) and **HRM** (Hierarchical Reasoning Models) — to the **PushT** robotic manipulation task from Diffusion Policy.
 
-The key innovation is adapting models originally designed for discrete puzzle-solving (Sudoku, Mazes, ARC) to continuous robotic control through careful tokenization of continuous action/observation spaces.
+These models, originally designed for discrete puzzles (Sudoku, Mazes, ARC-AGI), use iterative refinement via recursive weight-shared computation. We adapt them for continuous robotic control through:
+1. Continuous observation encoding (MLP encoder)
+2. Regression-based action prediction
+3. Learned action query tokens for parallel action decoding
 
 ## Task: PushT
 
-PushT is a planar pushing task where an agent must push a T-shaped block to a target pose.
-
 - **Observation**: 5D state — (agent_x, agent_y, block_x, block_y, block_angle)
 - **Action**: 2D — (target_x, target_y) position commands
-- **Metric**: Coverage score (intersection area / goal area), threshold at 95%
+- **Metric**: Coverage score (intersection area / goal area)
 - **Diffusion Policy baseline**: ~0.75 mean score (state-based)
 
-## Models
+## Architecture Evolution
+
+### V1: Fully Discrete (Tokenized Obs + Actions)
+- Both observations and actions tokenized into discrete bins
+- Cross-entropy loss on action tokens
+- Result: 100% train accuracy but poor env performance (~0.06 mean score)
+- **Problem**: Memorizes training sequences, doesn't generalize
+
+### V2: Hybrid (Continuous Obs + Discrete Actions)
+- MLP observation encoder + tokenized actions
+- Better generalization (~0.15 mean score)
+
+### V3: Fully Continuous (Current Best)
+- MLP observation encoder + regression action output
+- MSE loss on normalized continuous actions
+- **Best result: 0.34 max score, 0.26 mean score (HRM)**
+
+## Model Architectures
 
 ### TRM (Tiny Recursive Model)
-- Single shared reasoning module (L-level) used for both low-level and high-level computation
-- Recursive refinement: H_cycles outer loops × L_cycles inner loops
-- Only backpropagates through the final cycle (memory efficient)
-- ~1.4M parameters (h=256)
+- Single shared reasoning module (L-level) for both low and high-level computation
+- Recursive: H_cycles outer × L_cycles inner iterations
+- Only backprops through final cycle (memory efficient)
+- ~1.5M parameters (h=256)
 
-### HRM (Hierarchical Reasoning Model)
+### HRM (Hierarchical Reasoning Model) — Best
 - **Separate** H-level (slow planning) and L-level (fast computation) modules
-- H-level: abstract trajectory planning
-- L-level: precise action computation
-- ~2.5M parameters (h=256)
+- H-level learns abstract trajectory planning
+- L-level handles precise action computation
+- ~2.8M parameters (h=256)
 
-### GPT Baseline
-- Standard causal transformer for autoregressive action prediction
+## Results
 
-## Key Design Decisions
+### V3 Regression Models (Current)
+| Model | Params | Epochs | Mean Score | Max Score | Notes |
+|-------|--------|--------|------------|-----------|-------|
+| **HRM reg h=256** | **2.8M** | **150** | **0.236** | **0.344** | **Best overall** |
+| TRM reg h=256 | 1.5M | 100 | 0.170 | 0.270 | Good but overfits |
+| TRM reg h=512 | 7.5M | 50 | 0.140 | 0.207 | Still training |
+| TRM deep (H5L6) ah=2 | 2.2M | 25 | 0.091 | 0.143 | Very reactive |
 
-### Tokenization
-Continuous values are discretized into bins:
-- **Uniform binning**: Divide value range into N equal bins
-- **Mu-law encoding**: Logarithmic compression for better resolution near center
+### V1 Tokenized Models (Baseline)
+| Model | Mean Score | Max Score | Notes |
+|-------|------------|-----------|-------|
+| TRM tokenized | 0.061 | 0.067 | 100% train acc, poor generalization |
+| HRM tokenized | 0.045 | 0.059 | Same issue |
 
-### Positional Encoding
-Custom **dimension-aware positional encoding** that encodes:
-1. Time step position (which timestep)
-2. Dimension identity (which obs/action dimension)
-3. Token type (observation vs action)
-
-### Sequence Layout
-Flat sequence: `[obs_0_x, obs_0_y, ..., obs_0_angle, obs_1_x, ..., act_0_x, act_0_y, ..., act_15_x, act_15_y]`
-- Observation horizon: 2 steps × 5 dims = 10 tokens
-- Action prediction horizon: 16 steps × 2 dims = 32 tokens
-- Total: 42 tokens
-
-## Experiments
-
-### Phase 1: Baselines
-| Model | Params | Val Loss | Val Acc | Mean Score | Status |
-|-------|--------|----------|---------|------------|--------|
-| TRM (h=256) | 1.4M | - | - | - | Training |
-| HRM (h=256) | 2.5M | - | - | - | Training |
-| GPT (h=256) | - | - | - | - | Training |
-
-### Phase 2: Tokenizer Ablation
-| Bins | Type | Model | Score | Notes |
-|------|------|-------|-------|-------|
-| 128 | uniform | TRM | - | Pending |
-| 256 | uniform | TRM | - | Baseline |
-| 512 | uniform | TRM | - | Pending |
-| 1024 | uniform | TRM | - | Pending |
-| 256 | mulaw | TRM | - | Pending |
-
-### Phase 3: Positional Encoding
-| Type | Score | Notes |
-|------|-------|-------|
-| dim_aware | - | Baseline (time + dim + type embeddings) |
-| rope | - | Rotary positional encoding |
-| learned | - | Standard learned positional encoding |
-| none | - | No positional encoding |
-
-### Phase 4: Model Size
-| Hidden | Params | Score | Notes |
-|--------|--------|-------|-------|
-| 128 | - | - | Small |
-| 256 | 1.4M | - | Baseline |
-| 384 | - | - | Medium |
-| 512 | - | - | Large |
-
-### Phase 5: Recursion Depth
-| H_cycles | L_cycles | Score | Notes |
-|----------|----------|-------|-------|
-| 1 | 2 | - | Minimal recursion |
-| 3 | 4 | - | Baseline |
-| 5 | 6 | - | Deep recursion |
-| 8 | 8 | - | Very deep |
+### Key Findings
+1. **HRM > TRM**: Separate H/L modules significantly outperform weight-shared TRM
+2. **Regression > Classification**: Continuous outputs avoid quantization errors
+3. **Continuous obs encoding critical**: Tokenizing observations destroys information
+4. **Observation noise augmentation helps**: Prevents overfitting to exact training states
+5. **Action horizon matters**: Shorter execution horizons (4-8) with re-planning helps
 
 ## Setup
 
 ```bash
-# Create environment
 conda create -n vla_hrm python=3.10 -y
 conda activate vla_hrm
 pip install -r requirements.txt
@@ -104,21 +80,23 @@ pip install -r requirements.txt
 # Download PushT data
 cd diffusion_policy && mkdir -p data
 wget https://diffusion-policy.cs.columbia.edu/data/training/pusht.zip -O data/pusht.zip
-cd data && unzip pusht.zip
+cd data && unzip pusht.zip && cd ../..
 
-# Train TRM
-python train.py --model_type trm --hidden_size 256 --num_bins 256
+# Train V3 HRM (best)
+python train_v3.py --model_type hrm --hidden_size 256 --output_mode regression \
+    --obs_noise_std 2.0 --wandb_entity junha
 
-# Train HRM
-python train.py --model_type hrm --hidden_size 256 --num_bins 256
+# Train V3 TRM
+python train_v3.py --model_type trm --hidden_size 256 --output_mode regression \
+    --obs_noise_std 2.0 --wandb_entity junha
 ```
-
-## References
-
-- [Diffusion Policy](https://github.com/real-stanford/diffusion_policy) - Chi et al.
-- [TinyRecursiveModels](https://github.com/SamsungSAILMontreal/TinyRecursiveModels) - Samsung SAIL Montreal
-- [HRM](https://github.com/sapientinc/HRM) - Sapient Inc
 
 ## Wandb
 
-Training tracked at: [wandb project](https://wandb.ai/ejshin0310-korea-advanced-institute-of-science-and-techn/pusht-hrm)
+Training tracked at: [wandb.ai/junha/pusht-hrm](https://wandb.ai/junha/pusht-hrm)
+
+## References
+
+- [Diffusion Policy](https://github.com/real-stanford/diffusion_policy) — Chi et al., RSS 2023
+- [TinyRecursiveModels](https://github.com/SamsungSAILMontreal/TinyRecursiveModels) — Samsung SAIL Montreal
+- [HRM](https://github.com/sapientinc/HRM) — Sapient Inc

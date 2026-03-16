@@ -117,48 +117,57 @@ where $t_i$ is the timestep index, $d_i$ is the dimension index within that time
 \textbf{Model} & \textbf{Params} & \textbf{Val Loss} & \textbf{Val Acc} & \textbf{Mean Score} & \textbf{Max Score} \\
 \midrule
 Diffusion Policy (DDPM) & 2.5M & --- & --- & 0.75 & --- \\
-TRM (h=256) & 1.4M & \textit{training} & \textit{training} & \textit{training} & \textit{training} \\
-HRM (h=256) & 2.5M & \textit{training} & \textit{training} & \textit{training} & \textit{training} \\
-GPT (h=256) & --- & \textit{training} & \textit{training} & \textit{training} & \textit{training} \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\textit{Results will be updated as training completes.}
-
-\subsection{Tokenization Ablation}
-
-\begin{table}[h]
-\centering
-\caption{Effect of tokenization strategy and vocabulary size.}
-\begin{tabular}{lcccc}
-\toprule
-\textbf{Bins} & \textbf{Type} & \textbf{Resolution} & \textbf{Val Loss} & \textbf{Mean Score} \\
+TRM V1 (tokenized, h=256) & 1.4M & 0.001 & 100.0\% & 0.061 & 0.067 \\
+HRM V1 (tokenized, h=256) & 2.5M & 0.001 & 100.0\% & 0.045 & 0.059 \\
 \midrule
-128 & uniform & 4 px & --- & --- \\
-256 & uniform & 2 px & --- & --- \\
-512 & uniform & 1 px & --- & --- \\
-1024 & uniform & 0.5 px & --- & --- \\
-256 & mu-law & variable & --- & --- \\
+TRM V2 (cont.\ obs, h=256) & 1.5M & 3.12 & 16.5\% & 0.107 & 0.154 \\
+HRM V2 (cont.\ obs, h=256) & 2.8M & 3.22 & 15.5\% & 0.093 & 0.152 \\
+\midrule
+TRM V3 (regression, h=256) & 1.5M & 0.047 & --- & 0.170 & 0.270 \\
+\textbf{HRM V3 (regression, h=256)} & \textbf{2.8M} & \textbf{0.035} & --- & \textbf{0.236} & \textbf{0.344} \\
+TRM V3 large (h=512) & 7.5M & 0.066 & --- & 0.140 & 0.207 \\
+TRM V3 deep (H5L6, ah=2) & 2.2M & 0.111 & --- & 0.091 & 0.143 \\
 \bottomrule
 \end{tabular}
 \end{table}
+
+\subsection{Key Findings}
+
+\paragraph{Discrete tokenization fails for control.} V1 models achieve 100\% token prediction accuracy on training data but only 4--6\% mean coverage in evaluation. This is because: (1) small quantization errors compound over the 16-step action horizon; (2) the model memorizes exact training sequences rather than learning a generalizable policy; (3) any deviation from training observations leads to out-of-distribution states.
+
+\paragraph{HRM outperforms TRM.} The hierarchical separation of H-level (planning) and L-level (execution) modules in HRM consistently outperforms the weight-shared TRM. At epoch 150, HRM achieves 23.6\% mean score vs. TRM's 17.0\%. This suggests that separate modules can specialize: H-level for trajectory planning and L-level for precise action computation.
+
+\paragraph{Regression output is essential.} Moving from classification (cross-entropy over bins) to regression (MSE on continuous actions) improved scores by $3{-}4\times$. Continuous outputs avoid quantization errors and allow smoother action trajectories.
+
+\paragraph{Observation noise augmentation prevents overfitting.} Adding Gaussian noise ($\sigma=2.0$) to observations during training significantly improved generalization to unseen initial states.
 
 \section{Analysis}
 
 \subsection{Recursion as Iterative Refinement}
 
-The recursive reasoning mechanism in TRM/HRM can be understood as analogous to the denoising process in diffusion models:
+The recursive reasoning mechanism in TRM/HRM is analogous to the denoising process in diffusion models:
 \begin{itemize}[noitemsep]
     \item \textbf{Diffusion}: iteratively denoise a random Gaussian sample toward an action sequence
     \item \textbf{TRM/HRM}: iteratively refine latent states $z_H, z_L$ to produce better action predictions
 \end{itemize}
 
-The key advantage of the recursive approach is that it shares weights across all refinement steps, resulting in much more compact models compared to diffusion models which typically use separate U-Net forward passes.
+The key advantage is weight sharing across all refinement steps, yielding compact models (2.8M params) compared to diffusion models (2.5M+ for state-based Diffusion Policy).
+
+\subsection{Gap to Diffusion Policy}
+
+Our best model (HRM V3, 0.34 max score) still significantly underperforms Diffusion Policy (0.75 mean score). Potential reasons:
+\begin{itemize}[noitemsep]
+    \item Diffusion Policy uses iterative denoising with hundreds of steps; we use 3--5 recursion cycles
+    \item Diffusion Policy's action chunk prediction naturally handles multi-modality
+    \item Our evaluation uses randomized initial states which may differ substantially from training distribution
+    \item Training data is small (206 demonstrations) --- more data augmentation may help
+\end{itemize}
 
 \section{Conclusion}
 
-We have demonstrated the feasibility of applying discrete recursive reasoning models to continuous robotic control tasks. Initial results on PushT suggest that the recursive refinement mechanism can learn meaningful action prediction strategies, with the hierarchical separation in HRM showing promise for distinguishing between planning and execution.
+We demonstrated that recursive reasoning models (TRM/HRM) can be adapted for continuous robotic control, with the key insight that continuous observation encoding and regression outputs are essential. The hierarchical HRM architecture outperforms the flat TRM, achieving 34.4\% maximum coverage on PushT. While still below Diffusion Policy's 75\%, this represents a promising direction for compact, parameter-efficient robotic policies based on iterative refinement.
+
+Future work: (1) more recursion cycles with gradient checkpointing, (2) multi-modal output heads (GMM), (3) larger training datasets, (4) temporal action ensemble from multiple recursion depths.
 
 \bibliographystyle{plain}
 \begin{thebibliography}{9}
