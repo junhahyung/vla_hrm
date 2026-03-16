@@ -49,13 +49,14 @@ These models, originally designed for discrete puzzles (Sudoku, Mazes, ARC-AGI),
 
 ## Results
 
-### V3 Regression Models (Current)
+### V3 Regression Models (Current Best)
 | Model | Params | Epochs | Mean Score | Max Score | Notes |
 |-------|--------|--------|------------|-----------|-------|
-| **HRM reg h=256** | **2.8M** | **150** | **0.236** | **0.344** | **Best overall** |
-| TRM reg h=256 | 1.5M | 100 | 0.170 | 0.270 | Good but overfits |
-| TRM reg h=512 | 7.5M | 50 | 0.140 | 0.207 | Still training |
-| TRM deep (H5L6) ah=2 | 2.2M | 25 | 0.091 | 0.143 | Very reactive |
+| **HRM reg h=256** | **2.8M** | **350** | **0.296** | **0.392** | **Best mean** |
+| TRM reg h=256 | 1.5M | 225 | 0.284 | **0.401** | **Best max** |
+| TRM reg h=512 | 7.5M | 100 | 0.241 | 0.296 | Still training |
+| HRM deep h=384 (H5L6) | ~6M | 25 | 0.106 | 0.154 | Still early |
+| TRM deep (H5L6) ah=2 | 2.2M | 50 | 0.091 | 0.143 | Deep recursion slow |
 
 ### V1 Tokenized Models (Baseline)
 | Model | Mean Score | Max Score | Notes |
