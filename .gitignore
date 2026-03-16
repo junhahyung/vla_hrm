@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+checkpoints/
+wandb/
+data/
+*.zip
+diffusion_policy/
+TinyRecursiveModels/
+HRM/
+*.pt
+*.pth

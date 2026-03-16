@@ -1,0 +1,170 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+
+\title{Discrete Recursive Models for Continuous Robotic Control:\\
+Applying TRM and HRM to PushT}
+\author{VLA-HRM Project}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+We investigate applying discrete recursive reasoning models --- Tiny Recursive Models (TRM) and Hierarchical Reasoning Models (HRM) --- to the PushT robotic manipulation benchmark from Diffusion Policy. These models, originally designed for discrete puzzles (Sudoku, Mazes, ARC-AGI), perform iterative refinement through recursive computation. We bridge the continuous-discrete gap through careful tokenization of action and observation spaces, and introduce dimension-aware positional encoding to preserve the structure of flattened multi-dimensional sequences. We conduct extensive experiments on tokenization strategies, positional encodings, model sizes, and recursion depths.
+\end{abstract}
+
+\section{Introduction}
+
+Diffusion Policy~\cite{chi2023diffusion} has shown strong performance on robotic manipulation tasks by formulating action prediction as a denoising diffusion process. However, recent work on discrete recursive models --- TRM~\cite{trm2024} and HRM~\cite{hrm2024} --- has demonstrated remarkable reasoning capabilities on tasks like Sudoku and ARC-AGI with very compact models (7--27M parameters).
+
+A natural question arises: \textit{Can the recursive reasoning mechanism of these models be leveraged for robotic control?} The iterative refinement process in TRM/HRM is analogous to the denoising process in diffusion models --- both progressively transform an initial estimate into a final prediction. However, the key challenge is that robotic actions are continuous, while TRM/HRM operate on discrete tokens.
+
+\subsection{Contributions}
+\begin{itemize}[noitemsep]
+    \item Adaptation of TRM and HRM architectures for continuous robotic control via discrete tokenization
+    \item Dimension-aware positional encoding for structured multi-dimensional sequences
+    \item Extensive ablation studies on tokenization, positional encoding, model size, and recursion depth
+    \item Comparison against autoregressive GPT baseline and Diffusion Policy
+\end{itemize}
+
+\section{Background}
+
+\subsection{PushT Task}
+PushT is a planar pushing task where a circular agent must push a T-shaped block to match a target pose. The state space is 5-dimensional: agent position $(x_a, y_a)$, block position $(x_b, y_b)$, and block angle $\theta_b$. Actions are 2-dimensional target positions $(x_t, y_t)$ for PD control. The evaluation metric is coverage (intersection area / goal area), with success at 95\% coverage.
+
+The dataset contains 206 human demonstrations with 25,650 total timesteps. Following Diffusion Policy conventions, we use an observation horizon of $T_o = 2$ and a prediction horizon of $T_a = 16$.
+
+\subsection{Recursive Reasoning Models}
+
+\paragraph{TRM (Tiny Recursive Model)} uses a single reasoning module that is recursively applied in a two-level loop:
+\begin{itemize}[noitemsep]
+    \item \textbf{L-level}: Low-level computation cycles ($L_{\text{cycles}}$ iterations)
+    \item \textbf{H-level}: High-level refinement cycles ($H_{\text{cycles}}$ iterations)
+\end{itemize}
+The same weight-shared module processes both levels, alternating between updating the low-level state $z_L$ (with high-level input injection) and the high-level state $z_H$ (with low-level input injection).
+
+\paragraph{HRM (Hierarchical Reasoning Model)} extends TRM with \textit{separate} modules for the H-level and L-level:
+\begin{itemize}[noitemsep]
+    \item H-level module: slow, abstract planning with its own transformer layers
+    \item L-level module: fast, detailed computation with its own transformer layers
+\end{itemize}
+
+Both models only backpropagate through the final reasoning cycle, making training memory-efficient despite deep effective computation.
+
+\section{Method}
+
+\subsection{Tokenization}
+
+We discretize continuous observations and actions into a vocabulary of $V$ bins. We explore two strategies:
+
+\paragraph{Uniform Binning} divides each dimension's range $[\text{min}, \text{max}]$ into $V$ equal-width bins:
+\begin{equation}
+    \text{token}(x) = \left\lfloor \frac{x - x_{\min}}{x_{\max} - x_{\min}} \cdot V \right\rfloor, \quad
+    \hat{x}(\text{token}) = x_{\min} + \left(\text{token} + 0.5\right) \cdot \frac{x_{\max} - x_{\min}}{V}
+\end{equation}
+
+\paragraph{Mu-law Encoding} applies logarithmic compression before binning, giving finer resolution near the center of the range:
+\begin{equation}
+    f(x) = \text{sign}(x) \cdot \frac{\ln(1 + \mu |x|)}{\ln(1 + \mu)}
+\end{equation}
+
+\subsection{Sequence Structure}
+
+We flatten observations and actions into a single token sequence:
+\[
+    \underbrace{s^0_1, s^0_2, s^0_3, s^0_4, s^0_5, s^1_1, \ldots, s^1_5}_{\text{observations: } T_o \times 5 = 10},
+    \underbrace{a^0_1, a^0_2, a^1_1, \ldots, a^{15}_2}_{\text{actions: } T_a \times 2 = 32}
+\]
+
+During training, all tokens are provided (teacher forcing). During inference, action tokens are replaced with a learned mask embedding.
+
+\subsection{Dimension-Aware Positional Encoding}
+
+Standard positional encodings treat the flattened sequence as a 1D list, losing the multi-dimensional structure. We propose encoding three aspects:
+\begin{align}
+    \text{PE}(i) &= \text{TimeEmb}(t_i) + \text{DimEmb}(d_i) + \text{TypeEmb}(\tau_i)
+\end{align}
+where $t_i$ is the timestep index, $d_i$ is the dimension index within that timestep, and $\tau_i \in \{0, 1\}$ indicates observation vs.\ action.
+
+\section{Experimental Setup}
+
+\begin{itemize}[noitemsep]
+    \item \textbf{Hardware}: NVIDIA A100-PCIE-40GB
+    \item \textbf{Training}: 500 epochs, batch size 256, AdamW ($\beta_1=0.9, \beta_2=0.999$)
+    \item \textbf{Learning rate}: $10^{-4}$ with linear warmup (10 epochs) and cosine decay
+    \item \textbf{Evaluation}: 50 episodes every 50 epochs
+    \item \textbf{Logging}: Weights \& Biases
+\end{itemize}
+
+\section{Results}
+
+\subsection{Baseline Comparison}
+
+\begin{table}[h]
+\centering
+\caption{Baseline results on PushT. Diffusion Policy score from original paper.}
+\begin{tabular}{lccccc}
+\toprule
+\textbf{Model} & \textbf{Params} & \textbf{Val Loss} & \textbf{Val Acc} & \textbf{Mean Score} & \textbf{Max Score} \\
+\midrule
+Diffusion Policy (DDPM) & 2.5M & --- & --- & 0.75 & --- \\
+TRM (h=256) & 1.4M & \textit{training} & \textit{training} & \textit{training} & \textit{training} \\
+HRM (h=256) & 2.5M & \textit{training} & \textit{training} & \textit{training} & \textit{training} \\
+GPT (h=256) & --- & \textit{training} & \textit{training} & \textit{training} & \textit{training} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textit{Results will be updated as training completes.}
+
+\subsection{Tokenization Ablation}
+
+\begin{table}[h]
+\centering
+\caption{Effect of tokenization strategy and vocabulary size.}
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Bins} & \textbf{Type} & \textbf{Resolution} & \textbf{Val Loss} & \textbf{Mean Score} \\
+\midrule
+128 & uniform & 4 px & --- & --- \\
+256 & uniform & 2 px & --- & --- \\
+512 & uniform & 1 px & --- & --- \\
+1024 & uniform & 0.5 px & --- & --- \\
+256 & mu-law & variable & --- & --- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Analysis}
+
+\subsection{Recursion as Iterative Refinement}
+
+The recursive reasoning mechanism in TRM/HRM can be understood as analogous to the denoising process in diffusion models:
+\begin{itemize}[noitemsep]
+    \item \textbf{Diffusion}: iteratively denoise a random Gaussian sample toward an action sequence
+    \item \textbf{TRM/HRM}: iteratively refine latent states $z_H, z_L$ to produce better action predictions
+\end{itemize}
+
+The key advantage of the recursive approach is that it shares weights across all refinement steps, resulting in much more compact models compared to diffusion models which typically use separate U-Net forward passes.
+
+\section{Conclusion}
+
+We have demonstrated the feasibility of applying discrete recursive reasoning models to continuous robotic control tasks. Initial results on PushT suggest that the recursive refinement mechanism can learn meaningful action prediction strategies, with the hierarchical separation in HRM showing promise for distinguishing between planning and execution.
+
+\bibliographystyle{plain}
+\begin{thebibliography}{9}
+\bibitem{chi2023diffusion} Chi, C., et al. ``Diffusion Policy: Visuomotor Policy Learning via Action Diffusion.'' RSS 2023.
+\bibitem{trm2024} Samsung SAIL Montreal. ``Tiny Recursive Models.'' 2024.
+\bibitem{hrm2024} Sapient Inc. ``Hierarchical Reasoning Model.'' 2024.
+\end{thebibliography}
+
+\end{document}

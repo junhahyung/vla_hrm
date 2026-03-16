@@ -1,0 +1,32 @@
+# HRM base config for PushT
+model_type: hrm
+hidden_size: 256
+num_heads: 8
+expansion: 2.0
+H_layers: 2
+L_layers: 2
+H_cycles: 3
+L_cycles: 4
+pos_encoding_type: dim_aware
+forward_dtype: bfloat16
+
+# Tokenizer
+num_bins: 256
+tokenizer_type: uniform
+normalize_obs: true
+
+# Task
+obs_horizon: 2
+pred_horizon: 16
+action_horizon: 8
+
+# Training
+epochs: 500
+batch_size: 256
+lr: 1e-4
+weight_decay: 0.1
+grad_clip: 1.0
+warmup_epochs: 10
+eval_interval: 50
+eval_episodes: 50
+seed: 42
