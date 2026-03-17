@@ -55,14 +55,19 @@ These models, originally designed for discrete puzzles (Sudoku, Mazes, ARC-AGI),
 | TRM reg h=256 | 1.5M | 650 | 0.355 | 0.434 | Best V3 |
 | HRM reg h=256 | 2.8M | 950 | 0.302 | 0.393 | |
 
-### V4 Discrete Tokens with Advanced Losses (Current Best)
-| Model | Loss | Bins | Decode | Mean Score | Max Score | Epoch |
-|-------|------|------|--------|------------|-----------|-------|
-| **TRM Focal** | Focal | 512 | hard | **0.312** | **0.417** | 100 |
-| **HRM Gaussian** | GaussSoft(σ=2) | 256 | soft | 0.286 | **0.427** | 125 |
-| **HRM Gaussian** | GaussSoft(σ=2) | 256 | hard | **0.305** | 0.404 | 125 |
-| TRM Gaussian | GaussSoft(σ=2) | 256 | hard | 0.290 | 0.389 | 75 |
-| TRM Dist-weight | DistWt CE | 256 | hard | 0.233 | 0.355 | 100 |
+### V4 Discrete Tokens with Advanced Losses
+| Model | Loss | Bins | Best Mean | Best Max | Epoch |
+|-------|------|------|-----------|----------|-------|
+| TRM Gaussian | GaussSoft(σ=2) | 256 | 0.403 | 0.488 | 1000 |
+| TRM Focal | Focal | 512 | 0.375 | 0.470 | 1000 |
+| HRM Gaussian | GaussSoft(σ=2) | 256 | 0.340 | 0.450 | 1000 |
+
+### V6 Kitchen-Sink (Current, DP-Matched Eval Protocol)
+| Model | EMA Mean | Best Episode | Epoch | Notes |
+|-------|---------|-------------|-------|-------|
+| **HRM deep (H5L6)** | **0.303** | **0.989** | 275 | Dual loss, temporal ensemble |
+| HRM gradall h=384 | 0.267 | 0.962 | 150 | Grad through all steps |
+| TRM focal 512 | 0.263 | **1.000** | 250 | Perfect episode! |
 
 ### V1 Tokenized Models (Baseline)
 | Model | Mean Score | Max Score | Notes |
