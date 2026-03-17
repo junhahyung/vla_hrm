@@ -163,22 +163,19 @@ class PushTEnv(gym.Env):
 
     def reset(self):
         self._setup()
-        # Randomize initial agent and block positions
-        rs = np.random.RandomState(self._seed)
-        # Randomize block position and angle
-        block_pos = rs.uniform([100, 100], [400, 400])
-        block_angle = rs.uniform(0, 2 * np.pi)
-        self.block.position = tuple(block_pos)
-        self.block.angle = block_angle
-        # Randomize agent position
-        agent_pos = rs.uniform([50, 50], [450, 450])
-        self.agent.position = tuple(agent_pos)
-        # Step physics to settle
-        for _ in range(10):
-            self.space.step(1.0 / self.sim_hz)
-        state = self._get_obs()
+        # Match exact diffusion policy reset protocol
+        rs = np.random.RandomState(seed=self._seed)
+        state = np.array([
+            rs.randint(50, 450), rs.randint(50, 450),      # agent x, y
+            rs.randint(100, 400), rs.randint(100, 400),     # block x, y
+            rs.randn() * 2 * np.pi - np.pi                  # block angle (normal dist!)
+        ])
+        self.agent.position = state[:2].tolist()
+        self.block.angle = float(state[4])
+        self.block.position = state[2:4].tolist()
+        obs = self._get_obs()
         self.max_score = 0
-        return state
+        return obs
 
     def _get_obs(self):
         agent_pos = np.array(self.agent.position)
