@@ -62,12 +62,34 @@ These models, originally designed for discrete puzzles (Sudoku, Mazes, ARC-AGI),
 | TRM Focal | Focal | 512 | 0.375 | 0.470 | 1000 |
 | HRM Gaussian | GaussSoft(σ=2) | 256 | 0.340 | 0.450 | 1000 |
 
-### V6 Kitchen-Sink (Current, DP-Matched Eval Protocol)
-| Model | EMA Mean | Best Episode | Epoch | Notes |
-|-------|---------|-------------|-------|-------|
-| **HRM deep (H5L6)** | **0.303** | **0.989** | 275 | Dual loss, temporal ensemble |
-| HRM gradall h=384 | 0.267 | 0.962 | 150 | Grad through all steps |
-| TRM focal 512 | 0.263 | **1.000** | 250 | Perfect episode! |
+### V6 Kitchen-Sink (DP-Matched Eval Protocol)
+| Model | Best Mean | Best Episode | Epoch | Notes |
+|-------|----------|-------------|-------|-------|
+| **HRM deep (H5L6)** | **0.365** | **0.953** | 1500 | EMA no-TE is best |
+| HRM gradall h=384 | 0.321 | 0.977 | 880 | Grad through all steps |
+| TRM focal 512 | 0.295 | 0.833 | 1350 | |
+
+### V7 Iterative Refinement (Discrete Diffusion)
+| Refine Steps | Mean | Best Episode | Notes |
+|-------------|------|-------------|-------|
+| K=1 | 0.182 | 0.521 | No refinement |
+| K=4 | 0.221 | 0.853 | Default |
+| K=8 | 0.205 | 0.942 | More steps helps |
+
+### Baselines
+| Method | Mean Score | Best Episode | Params | Notes |
+|--------|-----------|-------------|--------|-------|
+| Our HRM V6 (best) | **0.365** | 0.953 | 5.1M | Discrete tokens |
+| Our diffusion MLP | 0.127 | 0.503 | ~1M | Simple DDPM |
+| Diffusion Policy (paper) | ~0.75 | - | 2.5M | Reference |
+
+### Ensemble Strategies (Debug)
+| Strategy | Mean | Zeros/22 | Fixed Failed |
+|----------|------|---------|-------------|
+| goal_biased(15) | - | - | **4/8 fixed** (incl. 1 perfect!) |
+| ensemble_noise(10) | 0.270 | **5** | 3/8 fixed |
+| approach_first | 0.289 | 8 | 1/8 fixed |
+| ensemble_temp | 0.262 | 7 | - |
 
 ### V1 Tokenized Models (Baseline)
 | Model | Mean Score | Max Score | Notes |
