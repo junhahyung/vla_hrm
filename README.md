@@ -62,12 +62,19 @@ These models, originally designed for discrete puzzles (Sudoku, Mazes, ARC-AGI),
 | TRM Focal | Focal | 512 | 0.375 | 0.470 | 1000 |
 | HRM Gaussian | GaussSoft(σ=2) | 256 | 0.340 | 0.450 | 1000 |
 
-### V6 Kitchen-Sink (DP-Matched Eval Protocol)
-| Model | Best Mean | Best Episode | Epoch | Notes |
-|-------|----------|-------------|-------|-------|
-| **HRM deep (H5L6)** | **0.365** | **0.953** | 1500 | EMA no-TE is best |
-| HRM gradall h=384 | 0.321 | 0.977 | 880 | Grad through all steps |
-| TRM focal 512 | 0.295 | 0.833 | 1350 | |
+### V8 Geometric Features + Mirroring (BEST)
+| Model | Best Mean | Epoch | Notes |
+|-------|----------|-------|-------|
+| **HRM geo+mirror** | **0.523** | 200 | 21 geometric features, 4x mirror augment |
+
+### V6-V9 Comparison
+| Model | Best Mean | Epoch | Notes |
+|-------|----------|-------|-------|
+| V9 HRM 512 bins | 0.406 | 632 | |
+| V6 HRM deep (H5L6) | 0.365 | 2000 | EMA no-TE |
+| V7 iterative refine | 0.357 | 623 | Discrete diffusion |
+| V6 HRM gradall h=384 | 0.355 | 1250 | |
+| V9 HRM 1000 bins | 0.334 | 629 | |
 
 ### V7 Iterative Refinement (Discrete Diffusion)
 | Refine Steps | Mean | Best Episode | Notes |
@@ -77,11 +84,12 @@ These models, originally designed for discrete puzzles (Sudoku, Mazes, ARC-AGI),
 | K=8 | 0.205 | 0.942 | More steps helps |
 
 ### Baselines
-| Method | Mean Score | Best Episode | Params | Notes |
-|--------|-----------|-------------|--------|-------|
-| Our HRM V6 (best) | **0.365** | 0.953 | 5.1M | Discrete tokens |
-| Our diffusion MLP | 0.127 | 0.503 | ~1M | Simple DDPM |
-| Diffusion Policy (paper) | ~0.75 | - | 2.5M | Reference |
+| Method | Mean Score | Params | Epoch | Notes |
+|--------|-----------|--------|-------|-------|
+| **Our HRM V8 (best)** | **0.523** | **5.1M** | 200 | **Beats 75M diffusion!** |
+| Diffusion U-Net (proper) | 0.428 | 75M | 1249 | Our implementation |
+| AR GPT baseline | 0.353 | ~3M | 2000 | |
+| Diffusion Policy (paper) | ~0.75 | 2.5M | - | Reference target |
 
 ### Ensemble Strategies (Debug)
 | Strategy | Mean | Zeros/22 | Fixed Failed |
