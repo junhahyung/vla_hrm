@@ -65,7 +65,8 @@ These models, originally designed for discrete puzzles (Sudoku, Mazes, ARC-AGI),
 ### V8 Geometric Features + Mirroring (BEST)
 | Model | Best Mean | Epoch | Notes |
 |-------|----------|-------|-------|
-| **HRM geo+mirror** | **0.523** | 200 | 21 geometric features, 4x mirror augment |
+| **HRM h=384 geo+mirror** | **0.558** | 3000 | Larger model, 512 bins |
+| HRM h=256 geo+mirror | 0.523 | 200 | 21 geometric features, 4x mirror augment |
 
 ### V6-V9 Comparison
 | Model | Best Mean | Epoch | Notes |
@@ -83,13 +84,16 @@ These models, originally designed for discrete puzzles (Sudoku, Mazes, ARC-AGI),
 | K=4 | 0.221 | 0.853 | Default |
 | K=8 | 0.205 | 0.942 | More steps helps |
 
-### Baselines
+### Baselines (Same Eval Protocol: 50 episodes, seeds 100000+)
 | Method | Mean Score | Params | Epoch | Notes |
 |--------|-----------|--------|-------|-------|
-| **Our HRM V8 (best)** | **0.523** | **5.1M** | 200 | **Beats 75M diffusion!** |
-| Diffusion U-Net (proper) | 0.428 | 75M | 1249 | Our implementation |
+| **Our HRM V8 h=384** | **0.558** | **~8M** | 3000 | **Beats DP by 10%!** |
+| Our HRM V8 h=256 | 0.523 | 5.1M | 200 | |
+| DP original code (1000ep) | 0.507 | 65.8M | 1000 | Their repo, our eval |
+| DP original code (300ep) | 0.451 | 65.8M | 300 | |
+| Our diffusion U-Net | 0.428 | 75M | 1249 | Our reimplementation |
 | AR GPT baseline | 0.353 | ~3M | 2000 | |
-| Diffusion Policy (paper) | ~0.75 | 2.5M | - | Reference target |
+| Diffusion Policy (paper) | ~0.75 | ~2.5M | - | Reference (diff eval?) |
 
 ### Ensemble Strategies (Debug)
 | Strategy | Mean | Zeros/22 | Fixed Failed |
