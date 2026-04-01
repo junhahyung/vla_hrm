@@ -1,0 +1,5 @@
+{
+  "env": {
+    "CONDA_DEFAULT_ENV": "vla_hrm"
+  }
+}
