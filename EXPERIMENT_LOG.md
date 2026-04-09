@@ -58,10 +58,89 @@ The interesting takeaway is that a small (3.4M) transformer trained with a DDPM 
 - wandb project: `pusht-paper-reproduce`.
 
 ### Session B: remote ssh server / A100 GPU 0
-- `ssh -p 10002 junhahyung@59.29.246.31`
-- Conda envs: `vla_hrm` (Python 3.10, PyTorch 2.5.1+cu121, for our models) and `robodiff` (Python 3.9, PyTorch 1.12.1, gym 0.21.0, for the original DP repo).
+- `ssh -p 10002 junhahyung@59.29.246.31` (password: visualking!)
+- Two conda envs (see Section 2.1 below for details).
 - Started from scratch: cloned `diffusion_policy`, `TinyRecursiveModels`, `HRM` and built a custom pipeline `pusht_hrm/` over many iterations (V1–V8) before arriving at `train_radical.py` which matches the Session A setup.
 - wandb project: `pusht-hrm` (entity: `junha`).
+
+### 2.1 Session B Conda Environments
+
+Session B needed **two separate conda environments** because the original Diffusion Policy repo pins old package versions (gym 0.21.0, PyTorch 1.12, numpy 1.23) that conflict with modern PyTorch features (`torch.nn.functional.scaled_dot_product_attention`, which was added in PyTorch 2.0) that our HRM model relies on for efficient attention.
+
+#### `vla_hrm` — the main HRM/TRM training environment
+
+```bash
+# Activation
+source ~/miniconda3/etc/profile.d/conda.sh
+conda activate vla_hrm
+```
+
+| Package | Version | Why |
+|---------|---------|-----|
+| Python | 3.10.20 | Modern Python |
+| PyTorch | 2.5.1+cu121 | Needed for `F.scaled_dot_product_attention` (SDPA) |
+| CUDA | 12.1 | Matches A100 driver |
+| gym | 0.26.2 | Newer gym — works with modern numpy but NOT with DP's `PushTKeypointsEnv` unless patched |
+| pymunk | 6.2.1 | **Pinned** to match DP's env legacy collision handling |
+| numpy | >=1.23 | Modern numpy |
+| zarr, einops, hydra-core, omegaconf, wandb, shapely, scikit-image, matplotlib, opencv-python-headless | latest | Supporting libs |
+
+**What runs in `vla_hrm`:**
+- `train.py`, `train_v2.py`, ..., `train_v8.py` — V1–V8 iterative development scripts
+- `train_final.py` — tokenized HRM with DP-env eval
+- **`train_radical.py`** — winning config: 20D keypoints + regression + HRM → 0.874/0.896/0.897
+- `pusht_hrm/model_v*.py` — all HRM/TRM model variants
+- `eval_our_model_dp_env.py` — evaluate our checkpoints in DP's env (importing DP's `PushTKeypointsEnv` from `vla_hrm` works once `pymunk==6.2.1` is installed)
+- `run_diffusion_proper.py`, `run_ar_baseline.py` — our reimplementations of DDPM and autoregressive baselines
+
+**Why `vla_hrm` can also use DP's env**: we installed `pymunk==6.2.1` (DP's pinned version) into `vla_hrm` too, so `from diffusion_policy.env.pusht.pusht_keypoints_env import PushTKeypointsEnv` succeeds. The `gym` version mismatch is not an issue at eval time because we use the env directly (not wrapped in a `SyncVectorEnv`).
+
+#### `robodiff` — the environment for running the **original DP repo as-is**
+
+```bash
+conda activate robodiff
+```
+
+| Package | Version | Why |
+|---------|---------|-----|
+| Python | 3.9.23 | DP paper's pinned version |
+| PyTorch | 1.12.1+cu116 | DP paper's pinned version |
+| CUDA | 11.6 | Matches the old PyTorch |
+| gym | **0.21.0** | **Critical** — DP paper uses this; newer gym breaks DP's `AsyncVectorEnv` |
+| pymunk | 6.2.1 | Same as `vla_hrm` |
+| diffusers | 0.11.1 | DP paper's pinned version |
+| numpy | 1.23.3 | Pinned |
+| numba | 0.60.0 | For the DP data sampler |
+| hydra-core | 1.2.0, omegaconf, dill, wandb 0.13.3, scikit-image 0.19.3, matplotlib 3.6.1 | DP pinned versions |
+
+**What runs in `robodiff`:**
+- The **unmodified** Diffusion Policy training script: `python train.py --config-name=train_diffusion_unet_lowdim_workspace`
+- DP's own evaluation (`PushTKeypointsRunner` with `AsyncVectorEnv`)
+
+**Why a separate env**: when Session B first tried to run DP's official `train.py` from `vla_hrm`, it failed with multiple errors:
+- `gym==0.26.2` broke DP's `SyncVectorEnv.reset_wait` signature
+- numpy 2.0 caused `deepcopy(space.np_random)` issues
+- `pymunk==7.x` broke pickling in the async env
+- `diffusers==0.37.0` renamed internal imports that DP's `diffusion_unet_lowdim_policy.py` relies on
+- `huggingface_hub` changed exports
+
+We spent days trying to patch these in-place before realizing it's easier to just create a fresh conda env matching the DP paper exactly. That env is `robodiff`, and it reproduces the DP paper's **0.871 mean score at epoch 50** on PushT-lowdim without any code modifications.
+
+**How the two envs interact**: they don't share code files, only data. Both read the same zarr dataset at `diffusion_policy/data/pusht/pusht_cchi_v7_replay.zarr`. When we evaluate a DP checkpoint with our eval script, we use the `vla_hrm` env (because our HRM model needs PyTorch 2.x for SDPA) but import DP's `PushTKeypointsEnv` directly from the cloned repo — this works because the env code itself doesn't need the old PyTorch, it only needs the right `pymunk` version (which both envs have).
+
+**For V10 (next experiment)**: we will use `vla_hrm` exclusively. V10 keeps the HRM model architecture (so needs PyTorch 2.x) and uses DP's `PushTKeypointsEnv` for evaluation (which `vla_hrm` can access via the pinned `pymunk==6.2.1`).
+
+### 2.2 Other pre-existing envs on the remote server
+
+These are other people's envs on the same remote server — **not used for this project**, listed for completeness to avoid confusion:
+
+| Env | Notes |
+|-----|-------|
+| `base` | Default miniconda base |
+| `dp` | An earlier attempt at setting up DP — superseded by `robodiff` |
+| `egox2prior` | Not ours |
+| `mimicgen-robocasa`, `robocasa` | Not ours |
+| `try` | Scratch env, ignore |
 
 ---
 
