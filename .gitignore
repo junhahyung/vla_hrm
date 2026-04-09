@@ -14,3 +14,19 @@ TinyRecursiveModels/
 HRM/
 *.pt
 *.pth
+
+# Large experiment logs (kept locally, summarized in EXPERIMENT_LOG.md)
+logs/*.log
+
+# Keep summary files in logs/
+!logs/experiment_status.txt
+
+# Misc
+.claude/scheduled_tasks.lock
+.conda_activate.sh
+
+# Auxiliary tex build files
+*.aux
+*.log
+*.out
+*.toc

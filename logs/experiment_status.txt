@@ -1,0 +1,103 @@
+Started: Wed Apr  1 12:40:42 PM UTC 2026
+>>> Starting regression: Wed Apr  1 12:40:42 PM UTC 2026
+>>> regression done: Wed Apr  1 12:56:26 PM UTC 2026
+>>> Starting flow: Wed Apr  1 12:56:26 PM UTC 2026
+>>> flow done: Wed Apr  1 01:22:49 PM UTC 2026
+>>> Starting mip: Wed Apr  1 01:22:49 PM UTC 2026
+>>> mip done: Wed Apr  1 01:46:56 PM UTC 2026
+>>> Starting diffusion: Wed Apr  1 01:46:56 PM UTC 2026
+>>> diffusion done: Wed Apr  1 04:11:40 PM UTC 2026
+>>> Starting hrm: Wed Apr  1 04:11:40 PM UTC 2026
+>>> hrm done: Wed Apr  1 05:38:41 PM UTC 2026
+>>> Starting trm: Wed Apr  1 05:38:41 PM UTC 2026
+>>> trm done: Wed Apr  1 07:07:06 PM UTC 2026
+=== MAIN TABLE DONE: Wed Apr  1 07:07:06 PM UTC 2026 ===
+>>> HRM H=1 L=1: Wed Apr  1 07:07:06 PM UTC 2026
+>>> HRM H=1 L=1 done: Wed Apr  1 07:17:23 PM UTC 2026
+>>> HRM H=1 L=2: Wed Apr  1 07:17:23 PM UTC 2026
+>>> HRM H=1 L=2 done: Wed Apr  1 07:28:53 PM UTC 2026
+>>> HRM H=1 L=4: Wed Apr  1 07:28:53 PM UTC 2026
+>>> HRM H=1 L=4 done: Wed Apr  1 07:42:33 PM UTC 2026
+>>> HRM H=1 L=6: Wed Apr  1 07:42:33 PM UTC 2026
+>>> HRM H=1 L=6 done: Wed Apr  1 07:58:22 PM UTC 2026
+>>> HRM H=2 L=1: Wed Apr  1 07:58:22 PM UTC 2026
+>>> HRM H=2 L=1 done: Wed Apr  1 08:10:52 PM UTC 2026
+>>> HRM H=2 L=2: Wed Apr  1 08:10:52 PM UTC 2026
+>>> HRM H=2 L=2 done: Wed Apr  1 08:25:34 PM UTC 2026
+>>> HRM H=2 L=4: Wed Apr  1 08:25:34 PM UTC 2026
+>>> HRM H=2 L=4 done: Wed Apr  1 08:44:37 PM UTC 2026
+>>> HRM H=2 L=6: Wed Apr  1 08:44:37 PM UTC 2026
+>>> HRM H=2 L=6 done: Wed Apr  1 09:08:10 PM UTC 2026
+>>> HRM H=3 L=1: Wed Apr  1 09:08:10 PM UTC 2026
+>>> HRM H=3 L=1 done: Wed Apr  1 09:22:53 PM UTC 2026
+>>> HRM H=3 L=2: Wed Apr  1 09:22:53 PM UTC 2026
+>>> HRM H=3 L=2 done: Wed Apr  1 09:40:50 PM UTC 2026
+>>> HRM H=3 L=4: Wed Apr  1 09:40:50 PM UTC 2026
+>>> HRM H=3 L=4 done: Wed Apr  1 10:05:21 PM UTC 2026
+>>> HRM H=3 L=6: Wed Apr  1 10:05:21 PM UTC 2026
+>>> HRM H=3 L=6 done: Wed Apr  1 10:36:45 PM UTC 2026
+>>> HRM H=5 L=1: Wed Apr  1 10:36:45 PM UTC 2026
+>>> HRM H=5 L=1 done: Wed Apr  1 10:55:52 PM UTC 2026
+>>> HRM H=5 L=2: Wed Apr  1 10:55:52 PM UTC 2026
+>>> HRM H=5 L=2 done: Wed Apr  1 11:20:45 PM UTC 2026
+>>> HRM H=5 L=4: Wed Apr  1 11:20:45 PM UTC 2026
+>>> HRM H=5 L=4 done: Wed Apr  1 11:56:34 PM UTC 2026
+>>> HRM H=5 L=6: Wed Apr  1 11:56:34 PM UTC 2026
+>>> HRM H=5 L=6 done: Thu Apr  2 12:42:59 AM UTC 2026
+>>> HRM H=8 L=1: Thu Apr  2 12:42:59 AM UTC 2026
+>>> HRM H=8 L=1 done: Thu Apr  2 01:08:35 AM UTC 2026
+>>> HRM H=8 L=2: Thu Apr  2 01:08:35 AM UTC 2026
+>>> HRM H=8 L=2 done: Thu Apr  2 01:43:07 AM UTC 2026
+>>> HRM H=8 L=4: Thu Apr  2 01:43:07 AM UTC 2026
+>>> HRM H=8 L=4 done: Thu Apr  2 02:35:37 AM UTC 2026
+>>> HRM H=8 L=6: Thu Apr  2 02:35:37 AM UTC 2026
+>>> HRM H=8 L=6 done: Thu Apr  2 03:45:48 AM UTC 2026
+=== CYCLE ABLATION DONE: Thu Apr  2 03:45:48 AM UTC 2026 ===
+>>> regression h=64: Thu Apr  2 03:45:48 AM UTC 2026
+>>> regression h=64 done: Thu Apr  2 03:53:47 AM UTC 2026
+>>> hrm h=64: Thu Apr  2 03:53:47 AM UTC 2026
+>>> hrm h=64 done: Thu Apr  2 04:25:09 AM UTC 2026
+>>> regression h=128: Thu Apr  2 04:25:09 AM UTC 2026
+>>> regression h=128 done: Thu Apr  2 04:33:06 AM UTC 2026
+>>> hrm h=128: Thu Apr  2 04:33:06 AM UTC 2026
+>>> hrm h=128 done: Thu Apr  2 05:03:19 AM UTC 2026
+>>> regression h=256: Thu Apr  2 05:03:19 AM UTC 2026
+>>> regression h=256 done: Thu Apr  2 05:11:41 AM UTC 2026
+>>> hrm h=256: Thu Apr  2 05:11:41 AM UTC 2026
+>>> hrm h=256 done: Thu Apr  2 05:58:14 AM UTC 2026
+>>> regression h=384: Thu Apr  2 05:58:14 AM UTC 2026
+>>> regression h=384 done: Thu Apr  2 06:08:44 AM UTC 2026
+>>> hrm h=384: Thu Apr  2 06:08:44 AM UTC 2026
+>>> hrm h=384 done: Thu Apr  2 07:16:36 AM UTC 2026
+=== SCALING ABLATION DONE: Thu Apr  2 07:16:36 AM UTC 2026 ===
+>>> HRM noise=0.0: Thu Apr  2 07:16:36 AM UTC 2026
+>>> HRM noise=0.0 done: Thu Apr  2 08:10:34 AM UTC 2026
+>>> HRM noise=0.5: Thu Apr  2 08:10:34 AM UTC 2026
+>>> HRM noise=0.5 done: Thu Apr  2 09:02:21 AM UTC 2026
+>>> HRM noise=1.0: Thu Apr  2 09:02:21 AM UTC 2026
+>>> HRM noise=1.0 done: Thu Apr  2 09:53:25 AM UTC 2026
+>>> HRM noise=2.0: Thu Apr  2 09:53:25 AM UTC 2026
+>>> HRM noise=2.0 done: Thu Apr  2 10:44:20 AM UTC 2026
+>>> HRM noise=3.0: Thu Apr  2 10:44:20 AM UTC 2026
+>>> HRM noise=3.0 done: Thu Apr  2 11:35:31 AM UTC 2026
+>>> HRM noise=5.0: Thu Apr  2 11:35:31 AM UTC 2026
+>>> HRM noise=5.0 done: Thu Apr  2 12:23:57 PM UTC 2026
+=== NOISE ABLATION DONE: Thu Apr  2 12:23:57 PM UTC 2026 ===
+>>> regression seed=123: Thu Apr  2 12:23:57 PM UTC 2026
+>>> regression seed=123 done: Thu Apr  2 12:40:50 PM UTC 2026
+>>> flow seed=123: Thu Apr  2 12:40:50 PM UTC 2026
+>>> flow seed=123 done: Thu Apr  2 01:08:20 PM UTC 2026
+>>> mip seed=123: Thu Apr  2 01:08:20 PM UTC 2026
+>>> mip seed=123 done: Thu Apr  2 01:32:51 PM UTC 2026
+>>> hrm seed=123: Thu Apr  2 01:32:51 PM UTC 2026
+>>> hrm seed=123 done: Thu Apr  2 03:01:14 PM UTC 2026
+>>> regression seed=456: Thu Apr  2 03:01:14 PM UTC 2026
+>>> regression seed=456 done: Thu Apr  2 03:16:38 PM UTC 2026
+>>> flow seed=456: Thu Apr  2 03:16:38 PM UTC 2026
+>>> flow seed=456 done: Thu Apr  2 03:42:14 PM UTC 2026
+>>> mip seed=456: Thu Apr  2 03:42:14 PM UTC 2026
+>>> mip seed=456 done: Thu Apr  2 04:06:07 PM UTC 2026
+>>> hrm seed=456: Thu Apr  2 04:06:07 PM UTC 2026
+>>> hrm seed=456 done: Thu Apr  2 05:34:05 PM UTC 2026
+=== MULTI-SEED DONE: Thu Apr  2 05:34:05 PM UTC 2026 ===
+=== ALL EXPERIMENTS COMPLETE: Thu Apr  2 05:34:05 PM UTC 2026 ===
