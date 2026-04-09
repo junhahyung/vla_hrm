@@ -357,3 +357,138 @@ However, Session A's sweep also showed that **other small iterative methods usin
 - HRM with a full-gradient 1-step inner loop instead of no-grad H_cycles × L_cycles.
 - Larger HRM (h=512, deeper cycles) for longer (5000+ epochs).
 - Cross-task generalization: train Flow on PushT, transfer HRM/Flow to Block-Pushing, Kitchen, LIBERO.
+
+---
+
+## 12. Next Plan — HRM Masked Discrete Diffusion (V10)
+
+**Design requirement**: the model must stay **discrete** (action tokens, not regression). This is needed for downstream RL (PPO, GRPO, etc.) which requires `log π(a|s)` — a well-defined action distribution. Regression heads only give a point estimate; discrete classification heads give a full probability over actions that we can sample from and compute log-probabilities of.
+
+### 12.1 Why discrete matters for RL
+
+PPO / GRPO / DPO-style algorithms all need:
+- **Sampling**: `a ~ π_θ(·|s)` — pull an action with known probability.
+- **Log-probability**: `log π_θ(a|s)` — for the importance ratio and KL regularization.
+- **Entropy**: `H[π_θ(·|s)]` — for entropy bonuses.
+
+A continuous regression head only gives one point estimate; to turn it into a distribution you need to wrap it in a Gaussian or mixture-of-Gaussians and fit the variance, which is unstable and adds design choices. A discrete classification head gives you all three quantities for free:
+
+```python
+logits = model(obs)                      # (B, seq_len, vocab_size)
+probs = softmax(logits / T)              # full action distribution
+action = categorical(probs).sample()     # sample
+logp = log(probs.gather(action))         # log-probability
+entropy = -(probs * log(probs)).sum()    # entropy
+```
+
+So V10 stays **fully discrete** — this is non-negotiable.
+
+### 12.2 The V10 architecture: HRM + Masked Discrete Diffusion
+
+The core idea is to combine HRM's recursive latent reasoning with MaskGIT / MDLM / Discrete-Diffusion-VLA style **masked token denoising**. This is "Option 2" from the hybrid discussion, chosen over the continuous flow hybrid because of the RL requirement.
+
+```python
+# Training: one forward pass, cross-entropy loss
+target_tokens = discretize(actions)              # (B, T_a * act_dim) integers in [0, V)
+mask_ratio = uniform(0, 1)                       # random mask rate per sample
+masked_tokens = random_mask(target_tokens, mask_ratio)
+
+seq = concat([obs_emb, token_emb(masked_tokens)])
+z_H = z_H_init.expand(B, total_len, d)
+z_L = z_L_init.expand(B, total_len, d)
+
+# GRADIENT ON through all cycles (the key fix vs current HRM)
+for h in range(H_cycles):
+    for l in range(L_cycles):
+        z_L = L_module(z_L, z_H + seq)
+    z_H = H_module(z_H, z_L)
+
+logits = classifier_head(z_H[act_positions])     # (B, T_a * act_dim, V)
+loss = cross_entropy(logits[masked], target_tokens[masked])
+
+# Inference: K denoising rounds of parallel token commits
+tokens = [MASK] * (T_a * act_dim)
+for step in range(K):                            # K = 4..8 rounds
+    seq = concat([obs_emb, token_emb(tokens)])
+    # run recursive inference
+    logits = hrm_forward(seq)
+    probs = softmax(logits, dim=-1)
+    # sample new tokens
+    new_tokens = categorical(probs).sample()
+    # commit top-(step+1)/K fraction by confidence
+    conf = probs.gather(new_tokens).max(-1)
+    keep_count = (step + 1) / K * num_tokens
+    keep_idx = conf.topk(keep_count)
+    tokens[keep_idx] = new_tokens[keep_idx]
+    tokens[not in keep_idx] = MASK               # remask the rest
+return decode(tokens)
+```
+
+**Why this addresses HRM's weaknesses:**
+1. **Gradient through all cycles**: every forward pass produces one CE target, so every internal computation is supervised. This was HRM's biggest failure mode at small widths.
+2. **Iterative refinement is explicit**: the model sees its own outputs on the next round and can correct them. Currently HRM's recursion is purely in latent space; the output tokens never feed back.
+3. **Error correction is trained**: because we mask at random ratios during training, the model learns to "fill in" any amount of missing or noisy actions — which is exactly what it needs to do at inference when earlier commits might be wrong.
+4. **Built-in curriculum**: low mask ratios (easy) and high mask ratios (hard) are all sampled, so the model learns both refinement and generation from scratch.
+
+**Why this keeps the RL-friendly properties:**
+1. Output is still a categorical distribution over action bins — direct PPO/GRPO compatibility.
+2. K denoising rounds at inference give K opportunities to sample, so you can choose to treat the whole inference loop as one "action" (outer-loop RL) or each commit step as a micro-action (inner-loop RL).
+3. Temperature and top-k sampling at inference are straightforward.
+
+### 12.3 Tokenizer choice
+
+We tested multiple tokenization schemes in V4 (uniform, mu-law, focal, etc.). For V10 the baseline will be:
+- **256 bins per action dim, uniform binning** over the training action range.
+- **Gaussian soft labels** (σ=1.5) during training — gives the model a smoother target near the true bin and empirically helps with low-precision control (V4 TRM Gaussian-soft was our best V4 config at 0.488 max).
+- **Soft decoding at inference**: when we need a scalar action for the env, use a softmax-weighted average of bin centers (not argmax) — this gives sub-bin precision without sacrificing the discrete distribution.
+
+The discrete tokens are what RL sees. The soft decode is only used for env interaction.
+
+### 12.4 Architecture details
+
+Starting from `train_radical.py` (which gave us 0.897):
+- Keep 20D keypoint observations, linear normalization, AdamW (`betas=0.95,0.999`, `wd=1e-6`), cosine LR with warmup.
+- Replace the regression head with a classifier head: `Linear(d, num_bins)`.
+- Replace MSE loss with cross-entropy against soft Gaussian targets over the correct bin.
+- Add a **mask token** to the action vocabulary (`vocab_size = num_bins + 1`).
+- Add `act_embed = nn.Embedding(num_bins + 1, d)` so the model can see its own current token guesses.
+- Introduce a **time/step embedding** so the model knows which denoising round it's in.
+- **Flip the HRM recursion to always have gradient on** (the `torch.no_grad()` wrapper around inner cycles is removed). Use gradient checkpointing if memory becomes an issue.
+
+### 12.5 Training recipe
+
+- **Epochs**: 500 (match Session A's best-HRM epoch count).
+- **Mask schedule at training**: uniform mask ratio in [0, 1] per sample, sampled independently each step.
+- **Auxiliary loss**: optional 10% weight on reconstructing unmasked tokens (keeps the representation sharp).
+- **Augmentation**: observation noise σ=2.0, 4× mirror augmentation (matching V8 and the winning Session B setup).
+- **Eval**: 50 episodes on `PushTKeypointsEnv(legacy=True)`, seeds 100000+, max_steps=300, with K∈{1, 4, 8} denoising rounds.
+- **Target**: ≥ 0.92 mean score (matching/beating Session A's best HRM) while keeping the discrete distribution.
+
+### 12.6 Experiments to run
+
+| # | Config | Purpose |
+|---|--------|---------|
+| 1 | h=256, H=5 L=6, K=4 rounds, 256 bins, soft_σ=1.5 | Baseline matching `train_radical.py` |
+| 2 | h=256, H=5 L=6, K=8 rounds | More inference rounds |
+| 3 | h=256, H=10 L=8 (80 passes), K=8 | Deep recursion + many rounds |
+| 4 | h=384, H=5 L=6, K=4 | Larger model |
+| 5 | h=256, K=4, 512 bins | Finer action resolution |
+| 6 | h=256, K=4, no soft labels (hard CE) | Ablation on soft labels |
+
+All 6 experiments fit on one A100 40GB in parallel (each uses ~2–5 GB based on V8 measurements).
+
+### 12.7 Sanity checks before scaling up
+
+Before launching the full V10 sweep, we will verify:
+1. **Mask denoising itself works**: train at a fixed 50% mask ratio, confirm CE drops below 0.5 and eval score is non-zero.
+2. **Iterative inference helps**: K=1 vs K=4 should give K=4 >> K=1 if the iterative refinement is doing something.
+3. **Gradient through all cycles actually trains**: compare loss curves against the current no-grad HRM; if they're identical, there's a bug in how we removed the `torch.no_grad()` wrapper.
+4. **Sampling works end-to-end**: can we roll out an episode with `categorical(softmax(logits)).sample()` and get a non-zero score? If yes → RL-ready.
+
+### 12.8 What we get at the end
+
+- A **fully discrete** HRM model that gives `π_θ(a|s)` as a categorical over action bins per dim per timestep.
+- Expected performance: 0.89–0.95 mean on PushT (matching or beating both Session A HRM 0.917 and our `train_radical.py` 0.897).
+- **RL-ready** action distribution: direct PPO/GRPO/DPO compatibility, can compute `log π`, `H[π]`, sample with any temperature.
+- An inference path with K∈{1, 4, 8} refinement rounds so RL can choose the trade-off between computation and performance.
+- Implementation file: `train_v10.py` + `pusht_hrm/model_v10.py`. Will share the data loader and eval function with `train_radical.py`.
