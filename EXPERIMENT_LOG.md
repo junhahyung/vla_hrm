@@ -5,7 +5,14 @@ This log consolidates work from **two Claude sessions** running independently on
 - **Session A (nas5 / A6000 GPU 2)**: `run_all_experiments.py` unified sweep reproducing "Much Ado About Noising" with 6 methods (Regression, Flow, MIP, Diffusion, HRM, TRM). ~29 hours of sweeps.
 - **Session B (remote / A100 GPU 0)**: Long-form iterative development `train.py` → V1 → V2 → V3 → V4 → V5 → V6 → V7 → V8 → `train_final.py` → `train_radical.py`. Debugging, env-matching, and architecture search across many weeks.
 
-Both sessions eventually converged on the same result: **HRM beats Diffusion Policy on PushT with many fewer parameters**, when trained with 20D keypoint observations and evaluated on DP's exact `PushTKeypointsEnv(legacy=True)` environment.
+Both sessions eventually converged on the same result: **HRM beats the published Diffusion Policy (1D-U-Net, 65.8M params, 0.871 on PushT-lowdim) with 15× fewer parameters**, when trained with 20D keypoint observations and evaluated on DP's exact `PushTKeypointsEnv(legacy=True)` environment.
+
+**Important clarification**: "Diffusion Policy" in this log always refers to the *published paper's* specific 1D Conv U-Net model (Chi et al. 2023, 65.8M params, 0.871 mean). Session A also trained *other* iterative methods (Flow Matching, transformer-based DDPM, MIP) that are not the DP paper — these are small transformers (3–3.4M params) with different training objectives. Some of them (Flow 0.953, transformer DDPM 0.985) score higher than HRM. So:
+
+- HRM (0.917) **beats the published DP paper** (0.871). ✓
+- HRM (0.917) **is beaten by Flow Matching** (0.953) and transformer-based DDPM (0.985) **trained with the same transformer backbone in Session A**. These are different architectures, not reproductions of DP.
+
+The interesting takeaway is that a small (3.4M) transformer trained with a DDPM objective outperforms the original 65.8M 1D-U-Net DP by 13 points — suggesting the DP paper's advantage is about iterative refinement, not the specific U-Net architecture.
 
 ---
 
@@ -331,6 +338,22 @@ Both sessions found HRM > TRM by 2–5%. Hierarchical separation helps.
 
 ## 11. Bottom line
 
-**HRM works on PushT, but is not the best.** It reaches 0.89–0.92 on DP's exact env with 3–5M params, beating the original 65.8M 1D-U-Net DP implementation. But a 3–3.4M transformer trained with Flow Matching (0.953) or DDPM (0.985) beats HRM by 4–7 points in the same setting. The iterative-refinement story that motivates HRM (recursive reasoning ~ denoising) is qualitatively right, but in practice diffusion/flow with full-gradient supervision through every step still wins.
+**HRM works on PushT. It beats the published Diffusion Policy paper (1D-U-Net, 65.8M params, 0.871) and does so with 15× fewer parameters** (HRM reaches 0.89–0.92 with 3–5M params; our smallest matching config uses just 2.9M params). In that sense the original goal of this project — "can a discrete recursive model beat Diffusion Policy on PushT" — is **accomplished**.
 
-**HRM's one clear advantage is parameter efficiency**: 2.9M params matching 65.8M DP is a real result and matters for edge deployment. Its clear weakness is the no-grad-through-intermediate-cycles design; a future version with gradient-through-all-cycles (or better, a Flow-matching-style training signal composed with HRM recursion) is the obvious next experiment.
+However, Session A's sweep also showed that **other small iterative methods using the same transformer backbone beat HRM**: Flow Matching reaches 0.953 and transformer-based DDPM reaches 0.985, both with 3–3.4M params. These are *not* the DP paper — they are small transformers trained with different objectives. They suggest that DP's published 0.871 is not a hard ceiling on small-transformer models, and that HRM's no-grad-through-intermediate-cycles design is leaving performance on the table compared to methods that backprop through every iteration.
+
+**HRM's niches on this task:**
+1. **Parameter efficiency**: 2.9M beats 65.8M published DP (22× smaller). Matters for edge deployment.
+2. **Training stability**: Session A's transformer DDPM was a slow learner (0.10 at ep 100, 0.98 at ep 425) — HRM was already at 0.8+ by ep 200.
+3. **Single-sample inference**: HRM is one forward pass with 30–80 internal recursive steps but all sharing the same weights and KV-cache-friendly; a future optimized inference path should be faster than DP's 100-step denoising.
+
+**HRM's clear weaknesses:**
+1. No gradient through intermediate cycles caps the effective depth of supervision.
+2. At small widths (h≤128) the recursive overhead isn't worth it.
+3. Architecture search is more expensive (H × L grid) than for plain diffusion/flow.
+
+**Obvious next experiments:**
+- HRM + Flow-matching training signal (gradient through every cycle, target = velocity field along straight interpolant).
+- HRM with a full-gradient 1-step inner loop instead of no-grad H_cycles × L_cycles.
+- Larger HRM (h=512, deeper cycles) for longer (5000+ epochs).
+- Cross-task generalization: train Flow on PushT, transfer HRM/Flow to Block-Pushing, Kitchen, LIBERO.
